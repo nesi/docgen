@@ -1,0 +1,31 @@
+#!/bin/bash
+
+home_dir=$(eval echo ~)
+output_file="${home_dir}/modules.txt"
+
+/bin/rm "${output_file}"
+
+badmods=( )
+
+for mod in $(module avail -t 2>&1 | grep -v ':$')
+do
+	print_this_module=true
+	for badmod in ${badmods[*]}
+	do
+		if [ "${mod}" == "${badmod}" ]
+		then
+			print_this_module=false
+			continue
+		fi
+	done
+	if [ "${print_this_module}" == "true" ]
+	then	
+		module whatis $mod 2>&1
+	fi
+done | \
+	/usr/bin/sed -e 's/:\s\+Description:/:/' | \
+	/usr/bin/grep ': ' | \
+	/usr/bin/grep -v ":ERROR:" | \
+	/usr/bin/grep -Ev "[Nn]ot (supported|available)" | \
+	/usr/bin/grep -v "only available" | \
+	/usr/bin/sed -e '/^\s*$/d' > "${output_file}"
