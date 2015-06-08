@@ -1,14 +1,14 @@
 #!/bin/bash
 
 home_dir=$(eval echo ~)
-uuid=$(/usr/bin/uuidgen)
+uuid=$(uuidgen)
 output_file="${home_dir}/modules-${uuid}.txt"
 
-/bin/rm -rf "${output_file}"
+rm -rf "${output_file}"
 
 badmods=( )
 
-for mod in $(module avail -t 2>&1 | /usr/bin/grep -v ':$')
+for mod in $(module avail -t 2>&1 | grep -v ':$')
 do
 	print_this_module=true
 	for badmod in ${badmods[*]}
@@ -24,10 +24,10 @@ do
 		module whatis $mod 2>&1
 	fi
 done | \
-	/usr/bin/sed -e 's/:\s\+Description:/:/' | \
-	/usr/bin/grep ': ' | \
-	/usr/bin/grep -v ":ERROR:" | \
-	/usr/bin/grep -Ev "[Nn]ot (supported|available)" | \
-	/usr/bin/grep -v "only available" | \
-	/usr/bin/sed -e '/^\s*$/d' \
+	sed -e 's/:\s\+Description:/:/' | \
+	grep ': ' | \
+	grep -v ":ERROR:" | \
+	grep -Ev "[Nn]ot (supported|available)" | \
+	grep -v "only available" | \
+	sed -e '/^\s*$/d' \
 	> "${output_file}"
