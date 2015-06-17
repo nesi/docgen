@@ -1,5 +1,14 @@
 #!/bin/bash
 
+type module 2>/dev/null
+if [ $? -ne 0 ]
+then
+	function module () 
+	{ 
+		eval `/usr/bin/modulecmd bash $*`
+	}
+fi
+
 home_dir=$(eval echo ~)
 output_file="${home_dir}/modules-$$.txt"
 
