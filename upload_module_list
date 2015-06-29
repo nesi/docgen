@@ -1,5 +1,7 @@
 #!/bin/bash
 
+certdir=${HOME}/code/nesi-docgen
+
 type module 1>/dev/null 2>/dev/null
 if [ $? -ne 0 ]
 then
@@ -16,6 +18,16 @@ then
 		}
 	fi
 fi
+
+long_hostname=$(hostname)
+case ${long_hostname} in
+	login-01.uoa.nesi.org.nz)
+		machine="pan"
+		;;
+	*)
+		echo "Error: unknown hostname: ${long_hostname}"
+		;;
+esac
 
 home_dir=$(eval echo ~)
 output_file="${home_dir}/modules-$$.txt"
@@ -47,3 +59,6 @@ done | \
 	grep -v "only available" | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
+
+curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${HOME}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
+rm ${output_file}
