@@ -26,6 +26,8 @@ case ${long_hostname} in
 		;;
 	nesi1)
 		machine="fitzroy"
+		export http_proxy="http://www-proxy.niwa.co.nz:80"
+		export https_proxy="https://www-proxy.niwa.co.nz:80"
 		;;
 	*)
 		echo "Error: unknown hostname: ${long_hostname}"
