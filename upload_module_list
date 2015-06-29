@@ -24,6 +24,9 @@ case ${long_hostname} in
 	login-01.uoa.nesi.org.nz)
 		machine="pan"
 		;;
+	nesi1)
+		machine="fitzroy"
+		;;
 	*)
 		echo "Error: unknown hostname: ${long_hostname}"
 		;;
@@ -60,5 +63,5 @@ done | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
 
-curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${HOME}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
+curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
 rm ${output_file}
