@@ -14,7 +14,6 @@ ARGS=$(getopt -o n -l "nagios" -n "${progname}" -- "$@");
 #Bad arguments
 if [ $? -ne 0 ]
 then
-	echo "Bad arguments" 1>&2
 	exit $critical
 fi
 
