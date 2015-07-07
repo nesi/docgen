@@ -54,7 +54,7 @@ case ${long_hostname} in
 esac
 
 echo "Testing connection to documentation server ..."
-curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
+curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
 curl_status=$?
 if [ ${curl_status} -ne 0 ]
 then
