@@ -115,7 +115,7 @@ done | \
 	grep -v "only available" | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
-curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
+curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
 rm ${output_file}
 if [ "${nagios}" = true ]
 then
