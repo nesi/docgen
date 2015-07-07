@@ -15,7 +15,7 @@ then
 	modulecmd_exe=$(which modulecmd)
 	if [ $? -ne 0 ]
 	then
-		echo "$progname: error: neither Lmod nor Environment Modules could be detected"
+		echo "$progname: error: neither Lmod nor Environment Modules could be detected" 1>&2
 		exit $critical
 	else
 		function module () 
@@ -48,7 +48,7 @@ case ${long_hostname} in
 		machine="popper"
 		;;
 	*)
-		echo "${progname}: error: unknown hostname: ${long_hostname}"
+		echo "${progname}: error: unknown hostname: ${long_hostname}" 1>&2
 		exit $critical
 		;;
 esac
@@ -58,7 +58,7 @@ curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certd
 curl_status=$?
 if [ ${curl_status} -ne 0 ]
 then
-	echo "${progname}: error: unable to connect to documentation server"
+	echo "${progname}: error: unable to connect to documentation server" 1>&2
 	exit $critical
 fi
 
