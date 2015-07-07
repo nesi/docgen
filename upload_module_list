@@ -9,13 +9,38 @@ warning=1
 critical=2
 unknown=3
 
+ARGS=$(getopt -o n -l "nagios" -n "${progname}" -- "$@");
+
+#Bad arguments
+if [ $? -ne 0 ]
+then
+	echo "Bad arguments" 1>&2
+	exit $critical
+fi
+
+eval set -- "$ARGS";
+
+while true
+do
+	case "$1" in
+		-n|--nagios)
+			shift
+			nagios=true
+			;;
+		--)
+			shift
+			break
+			;;
+	esac
+done
+
 type module 1>/dev/null 2>/dev/null
 if [ $? -ne 0 ]
 then
 	modulecmd_exe=$(which modulecmd)
 	if [ $? -ne 0 ]
 	then
-		echo "$progname: error: neither Lmod nor Environment Modules could be detected" 1>&2
+		echo "Neither Lmod nor Environment Modules could be detected" 1>&2
 		exit $critical
 	else
 		function module () 
@@ -48,17 +73,16 @@ case ${long_hostname} in
 		machine="popper"
 		;;
 	*)
-		echo "${progname}: error: unknown hostname: ${long_hostname}" 1>&2
+		echo "Unknown hostname: ${long_hostname}" 1>&2
 		exit $critical
 		;;
 esac
 
-echo "Testing connection to documentation server ..."
 curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
 curl_status=$?
 if [ ${curl_status} -ne 0 ]
 then
-	echo "${progname}: error: unable to connect to documentation server" 1>&2
+	echo "Unable to connect to documentation server" 1>&2
 	exit $critical
 fi
 
@@ -69,7 +93,6 @@ rm -rf "${output_file}"
 
 badmods=( )
 
-echo "Generating module list ..."
 for mod in $(module avail -t 2>&1 | grep -v ':$')
 do
 	print_this_module=true
@@ -93,9 +116,10 @@ done | \
 	grep -v "only available" | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
-echo "Uploading module list ..."
 curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
-echo "Cleaning up ..."
 rm ${output_file}
-echo "Done."
+if [ "${nagios}" = true ]
+then
+	echo "Module lists for documentation purposes have been successfully updated."
+fi
 exit $ok
