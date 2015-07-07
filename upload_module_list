@@ -2,14 +2,15 @@
 
 certdir=${HOME}/code/nesi-docgen
 
+progname=$(basename $0)
+
 type module 1>/dev/null 2>/dev/null
 if [ $? -ne 0 ]
 then
 	modulecmd_exe=$(which modulecmd)
 	if [ $? -ne 0 ]
 	then
-		echo "Error: Neither Lmod nor Environment Modules could be detected."
-		echo "Exiting."
+		echo "$progname: error: neither Lmod nor Environment Modules could be detected"
 		exit 1
 	else
 		function module () 
@@ -29,11 +30,21 @@ case ${long_hostname} in
 		export http_proxy="http://www-proxy.niwa.co.nz:80"
 		export https_proxy="https://www-proxy.niwa.co.nz:80"
 		;;
+	p1n14-c)
+		machine="kerr"
+		;;	
 	p2n14-c)
 		machine="beatrice"
 		;;
+	bpfen1)
+		machine="foster"
+		;;
+	viz0)
+		machine="popper"
+		;;
 	*)
-		echo "Error: unknown hostname: ${long_hostname}"
+		echo "${progname}: error: unknown hostname: ${long_hostname}"
+		exit 1
 		;;
 esac
 
