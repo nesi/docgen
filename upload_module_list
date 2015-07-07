@@ -1,8 +1,13 @@
 #!/bin/bash
 
-certdir=${HOME}/code/nesi-docgen
-
 progname=$(basename $0)
+certdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+server="docs.nesi.org.nz"
+
+ok=0
+warning=1
+critical=2
+unknown=3
 
 type module 1>/dev/null 2>/dev/null
 if [ $? -ne 0 ]
@@ -11,7 +16,7 @@ then
 	if [ $? -ne 0 ]
 	then
 		echo "$progname: error: neither Lmod nor Environment Modules could be detected"
-		exit 1
+		exit $critical
 	else
 		function module () 
 		{ 
@@ -44,9 +49,18 @@ case ${long_hostname} in
 		;;
 	*)
 		echo "${progname}: error: unknown hostname: ${long_hostname}"
-		exit 1
+		exit $critical
 		;;
 esac
+
+echo "Testing connection to documentation server ..."
+curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
+curl_status=$?
+if [ ${curl_status} -ne 0 ]
+then
+	echo "${progname}: error: unable to connect to documentation server"
+	exit $critical
+fi
 
 home_dir=$(eval echo ~)
 output_file="${home_dir}/modules-$$.txt"
@@ -55,6 +69,7 @@ rm -rf "${output_file}"
 
 badmods=( )
 
+echo "Generating module list ..."
 for mod in $(module avail -t 2>&1 | grep -v ':$')
 do
 	print_this_module=true
@@ -78,6 +93,9 @@ done | \
 	grep -v "only available" | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
-
+echo "Uploading module list ..."
 curl --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
+echo "Cleaning up ..."
 rm ${output_file}
+echo "Done."
+exit $ok
