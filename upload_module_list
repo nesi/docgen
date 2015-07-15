@@ -1,7 +1,7 @@
 #!/bin/bash
 
 progname=$(basename $0)
-certdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+certdir=$( cd "$( dirname "$( readlink -f "${BASH_SOURCE[0]}")" )" && pwd )
 server="docs.nesi.org.nz"
 
 ok=0
@@ -9,7 +9,7 @@ warning=1
 critical=2
 unknown=3
 
-ARGS=$(getopt -o n -l "nagios" -n "${progname}" -- "$@");
+ARGS=$(getopt -o c:dn -l "certificate-dir:,debug,nagios" -n "${progname}" -- "$@");
 
 #Bad arguments
 if [ $? -ne 0 ]
@@ -19,9 +19,23 @@ fi
 
 eval set -- "$ARGS";
 
+debug=false
+nagios=false
 while true
 do
 	case "$1" in
+		-c|--certificate-dir)
+			shift
+			if [ -n "$1" ]
+			then
+				certdir=$1
+				shift
+			fi
+			;;
+		-d|--debug)
+			shift
+			debug=true
+			;;
 		-n|--nagios)
 			shift
 			nagios=true
@@ -77,6 +91,16 @@ case ${long_hostname} in
 		;;
 esac
 
+if [ ! -d "${certdir}" ]
+then
+	echo "${certdir}: not a directory" 1>&2
+	exit $critical
+elif [ ! -f "${certdir}/${machine}.key" ]
+then
+	echo "${certdir}/${machine}.key: not a file" 1>&2
+	exit $critical
+fi
+
 curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
 curl_status=$?
 if [ ${curl_status} -ne 0 ]
@@ -116,7 +140,10 @@ done | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
 curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
-rm ${output_file}
+if [ "${debug}" = false ]
+then
+	rm ${output_file}
+fi
 if [ "${nagios}" = true ]
 then
 	echo "Module lists for documentation purposes have been successfully updated."
