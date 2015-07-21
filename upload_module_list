@@ -126,7 +126,10 @@ esac
 
 # Do a quick check to make sure we can actually connect to the documentation
 # server.
-${curl_exe} -s -S --sslv3 --cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem --key ${certdir}/${localhost}.key https://${server}:443/${localhost} || \
+{ ${curl_exe} -s -S --sslv3 \
+	--cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem \
+	--key ${certdir}/${localhost}.key \
+	https://${server}:443/${localhost} > /dev/null ; } || \
 { echo "Unable to connect to documentation server" 1>&2 ; continue ; }
 
 # Set the home directory.
