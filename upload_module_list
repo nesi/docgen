@@ -1,14 +1,25 @@
 #!/bin/bash
 
-progname=$(basename $0)
-certdir=$( cd "$( dirname "$( readlink -f "${BASH_SOURCE[0]}")" )" && pwd )
-server="docs.nesi.org.nz"
+# A script to provide a list of modules, versions and the associated "module
+# whatis" statements (if any) to the NeSI documentation server from a
+# somewhat arbitrary NeSI cluster.
 
+# Set some possible exit statuses suitable for nagios/icinga.
+# Note that at the moment we use cron instead, so although this is
+# superfluous it's not entirely bad.
 ok=0
 warning=1
 critical=2
 unknown=3
 
+# Get some configuration information from the local machine, etc.
+progname=$(basename $0)
+certdir=$( cd "$( dirname "$( readlink -f "${BASH_SOURCE[0]}" )" )" && pwd )
+export PATH="${certdir}:${PATH}"
+curl_exe=$(which curl)
+server="docs.nesi.org.nz"
+
+# Get command line arguments
 ARGS=$(getopt -o c:dn -l "certificate-dir:,debug,nagios" -n "${progname}" -- "$@");
 
 #Bad arguments
@@ -47,27 +58,24 @@ do
 	esac
 done
 
+# Set some parameters based on where this script is being run
+uchpc=false
 long_hostname=$(hostname)
 case ${long_hostname} in
 login-01.uoa.nesi.org.nz)
-	machine="pan"
+	localhost="pan"
+	machines="pan"
 	;;
 nesi1)
-	machine="fitzroy"
+	localhost="fitzroy"
+	machines="fitzroy"
 	export http_proxy="http://www-proxy.niwa.co.nz:80"
 	export https_proxy="https://www-proxy.niwa.co.nz:80"
 	;;
-p1n14-c)
-	machine="kerr"
-	;;	
-p2n14-c)
-	machine="beatrice"
-	;;
-bpfen1)
-	machine="foster"
-	;;
-viz0)
-	machine="popper"
+p1n14-c|p2n14-c|bpfen1|viz0)
+	ielogin on
+	localhost="beatrice"
+	machines="beatrice kerr foster popper"
 	;;
 *)
 	echo "Unknown hostname: ${long_hostname}" 1>&2
@@ -75,29 +83,23 @@ viz0)
 	;;
 esac
 
+# Make sure the specified certificate directory exists and that we have an
+# appropriate key file inside that directory
 if [ ! -d "${certdir}" ]
 then
 	echo "${certdir}: not a directory" 1>&2
 	exit $critical
-elif [ ! -f "${certdir}/${machine}.key" ]
+elif [ ! -f "${certdir}/${localhost}.key" ]
 then
-	echo "${certdir}/${machine}.key: not a file" 1>&2
+	echo "${certdir}/${localhost}.key: not a file" 1>&2
 	exit $critical
 fi
 
-curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine}
-curl_status=$?
-if [ ${curl_status} -ne 0 ]
-then
-	echo "Unable to connect to documentation server" 1>&2
-	exit $critical
-fi
-
-home_dir=$(eval echo ~)
-output_file="${home_dir}/modules-$$.txt"
-
-rm -rf "${output_file}"
-
+# Determine whether, on this machine, environment-modules or LMOD is being
+# used.
+# Note that we assume gratuitously that all machines in the list of machines
+# have the same style (environment-modules or LMOD) as is used on this
+# machine.
 type=$(type module | tail -n +3)
 lmod=false
 case "${type}" in
@@ -122,29 +124,65 @@ case "${type}" in
 	;;
 esac
 
-if [ "${lmod}" = true ]
+# Do a quick check to make sure we can actually connect to the documentation
+# server.
+${curl_exe} -s -S --sslv3 --cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem --key ${certdir}/${localhost}.key https://${server}:443/${localhost} || \
+{ echo "Unable to connect to documentation server" 1>&2 ; continue ; }
+
+# Set the home directory.
+home_dir=$(eval echo ~)
+
+# For each machine, set an output file (in the home directory on this
+# machine), prepare a command based on where we are running and LMOD versus
+# environment-modules, and run the command, uploading a file.
+for machine in ${machines}
+do
+
+	output_file="${home_dir}/modules-${machine}-$$.txt"
+	rm -rf "${output_file}"
+
+	if [ "${lmod}" = true ]
+	then
+		module_list=$(module avail -t 2>&1 | grep -v ':$')
+		command="for mod in ${module_list} ; do module whatis \${mod} 2>&1 ; done"
+	elif [ "${localhost}" = "beatrice" ]
+	then
+		command="ssh \${machine} 'bash -l -c \"module whatis -t\" 2>&1'"
+	else
+		command="module whatis -t 2>&1"
+	fi
+	eval ${command} | \
+		sed -e 's/:\s\+Description:/:/' | \
+		grep ': ' | \
+		grep -v ":ERROR:" | \
+		grep -Ev "[Nn]ot (supported|available)" | \
+		grep -v "only available" | \
+		sed -e '/^\s*$/d' \
+		> "${output_file}"
+	${curl_exe} -s -S --sslv3 --cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem --key ${certdir}/${localhost}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
+	if [ "${debug}" = true ]
+	then
+		heading="Module list for $machine"
+		len=${#heading}
+		echo "${heading}"
+		for i in $(seq ${len})
+		do
+			echo -n "-"
+		done
+		echo ""
+		cat "${output_file}"
+	fi
+	rm ${output_file}
+	if [ "${nagios}" = true ]
+	then
+		echo "Module lists for documentation purposes have been successfully updated."
+	fi
+done
+
+# Turn off ielogin if needed.
+if [ "${localhost}" = "beatrice" ]
 then
-	module_list=$(module avail -t 2>&1 | grep -v ':$')
-	command="for mod in ${module_list} ; do module whatis \${mod} 2>&1 ; done"
-else
-	command="bash -l -c \"module whatis -t\" 2>&1"
+	ielogin off
 fi
-eval ${command} | \
-	sed -e 's/:\s\+Description:/:/' | \
-	grep ': ' | \
-	grep -v ":ERROR:" | \
-	grep -Ev "[Nn]ot (supported|available)" | \
-	grep -v "only available" | \
-	sed -e '/^\s*$/d' \
-	> "${output_file}"
-curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
-if [ "${debug}" = true ]
-then
-	cat "${output_file}"
-fi
-rm ${output_file}
-if [ "${nagios}" = true ]
-then
-	echo "Module lists for documentation purposes have been successfully updated."
-fi
+
 exit $ok
