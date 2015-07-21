@@ -24,71 +24,55 @@ nagios=false
 while true
 do
 	case "$1" in
-		-c|--certificate-dir)
+	-c|--certificate-dir)
+		shift
+		if [ -n "$1" ]
+		then
+			certdir=$1
 			shift
-			if [ -n "$1" ]
-			then
-				certdir=$1
-				shift
-			fi
-			;;
-		-d|--debug)
-			shift
-			debug=true
-			;;
-		-n|--nagios)
-			shift
-			nagios=true
-			;;
-		--)
-			shift
-			break
-			;;
+		fi
+		;;
+	-d|--debug)
+		shift
+		debug=true
+		;;
+	-n|--nagios)
+		shift
+		nagios=true
+		;;
+	--)
+		shift
+		break
+		;;
 	esac
 done
 
-type module 1>/dev/null 2>/dev/null
-if [ $? -ne 0 ]
-then
-	modulecmd_exe=$(which modulecmd)
-	if [ $? -ne 0 ]
-	then
-		echo "Neither Lmod nor Environment Modules could be detected" 1>&2
-		exit $critical
-	else
-		function module () 
-		{ 
-			eval `"${modulecmd_exe}" bash $*`
-		}
-	fi
-fi
-
 long_hostname=$(hostname)
 case ${long_hostname} in
-	login-01.uoa.nesi.org.nz)
-		machine="pan"
-		;;
-	nesi1)
-		machine="fitzroy"
-		export http_proxy="http://www-proxy.niwa.co.nz:80"
-		export https_proxy="https://www-proxy.niwa.co.nz:80"
-		;;
-	p1n14-c)
-		machine="kerr"
-		;;	
-	p2n14-c)
-		machine="beatrice"
-		;;
-	bpfen1)
-		machine="foster"
-		;;
-	viz0)
-		machine="popper"
-		;;
-	*)
-		echo "Unknown hostname: ${long_hostname}" 1>&2
-		exit $critical
-		;;
+login-01.uoa.nesi.org.nz)
+	machine="pan"
+	;;
+nesi1)
+	machine="fitzroy"
+	export http_proxy="http://www-proxy.niwa.co.nz:80"
+	export https_proxy="https://www-proxy.niwa.co.nz:80"
+	;;
+p1n14-c)
+	machine="kerr"
+	;;	
+p2n14-c)
+	machine="beatrice"
+	;;
+bpfen1)
+	machine="foster"
+	;;
+viz0)
+	machine="popper"
+	;;
+*)
+	echo "Unknown hostname: ${long_hostname}" 1>&2
+	exit $critical
+	;;
 esac
 
 if [ ! -d "${certdir}" ]
@@ -101,7 +85,7 @@ then
 	exit $critical
 fi
 
-curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine} > /dev/null
+curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://${server}:443/${machine}
 curl_status=$?
 if [ ${curl_status} -ne 0 ]
 then
@@ -114,24 +98,38 @@ output_file="${home_dir}/modules-$$.txt"
 
 rm -rf "${output_file}"
 
-badmods=( )
-
-for mod in $(module avail -t 2>&1 | grep -v ':$')
-do
-	print_this_module=true
-	for badmod in ${badmods[*]}
-	do
-		if [ "${mod}" == "${badmod}" ]
-		then
-			print_this_module=false
-			break
-		fi
-	done
-	if [ "${print_this_module}" == "true" ]
-	then	
-		module whatis $mod 2>&1
+type=$(type module | tail -n +3)
+lmod=false
+case "${type}" in
+*LMOD* )
+	lmod=true
+	;;
+*modulecmd*)
+	true
+	;;
+*)
+	modulecmd_exe=$(which modulecmd)
+	if [ $? -ne 0 ]
+	then
+		echo "Neither Lmod nor Environment Modules could be detected" 1>&2
+		exit $critical
+	else
+		function module () 
+		{ 
+			eval `"${modulecmd_exe}" bash $*`
+		}
 	fi
-done | \
+	;;
+esac
+
+if [ "${lmod}" = true ]
+then
+	module_list=$(module avail -t 2>&1 | grep -v ':$')
+	command="for mod in ${module_list} ; do module whatis \${mod} 2>&1 ; done"
+else
+	command="bash -l -c \"module whatis -t\" 2>&1"
+fi
+eval ${command} | \
 	sed -e 's/:\s\+Description:/:/' | \
 	grep ': ' | \
 	grep -v ":ERROR:" | \
@@ -140,10 +138,11 @@ done | \
 	sed -e '/^\s*$/d' \
 	> "${output_file}"
 curl -s -S --cacert ${certdir}/docs.pem --cert ${certdir}/${machine}.pem --key ${certdir}/${machine}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
-if [ "${debug}" = false ]
+if [ "${debug}" = true ]
 then
-	rm ${output_file}
+	cat "${output_file}"
 fi
+rm ${output_file}
 if [ "${nagios}" = true ]
 then
 	echo "Module lists for documentation purposes have been successfully updated."
