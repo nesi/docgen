@@ -135,7 +135,7 @@ esac
 	--cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem \
 	--key ${certdir}/${localhost}.key \
 	https://${server}:443/${localhost} > /dev/null ; } || \
-{ echo "Unable to connect to documentation server" 1>&2 ; }
+{ echo "Unable to connect to documentation server" 1>&2 ; exit $critical ; }
 
 # Set the home directory.
 home_dir=$(eval echo ~)
