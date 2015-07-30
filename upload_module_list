@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 # A script to provide a list of modules, versions and the associated "module
 # whatis" statements (if any) to the NeSI documentation server from a
