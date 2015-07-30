@@ -101,6 +101,11 @@ fi
 # have the same style (environment-modules or LMOD) as is used on this
 # machine.
 type=$(type module | tail -n +3)
+if [ $? -ne 0 ]
+then
+	echo "Neither Lmod nor Environment Modules could be detected" 1>&2
+	exit $critical
+fi
 lmod=false
 case "${type}" in
 *LMOD* )
@@ -130,7 +135,7 @@ esac
 	--cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem \
 	--key ${certdir}/${localhost}.key \
 	https://${server}:443/${localhost} > /dev/null ; } || \
-{ echo "Unable to connect to documentation server" 1>&2 ; continue ; }
+{ echo "Unable to connect to documentation server" 1>&2 ; }
 
 # Set the home directory.
 home_dir=$(eval echo ~)
