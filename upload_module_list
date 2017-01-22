@@ -72,11 +72,6 @@ nesi1)
 	export http_proxy="http://www-proxy.niwa.co.nz:80"
 	export https_proxy="https://www-proxy.niwa.co.nz:80"
 	;;
-p1n14-c|p2n14-c|bpfen1|viz0)
-	ielogin on
-	localhost="beatrice"
-	machines="beatrice kerr foster popper"
-	;;
 *)
 	echo "Unknown hostname: ${long_hostname}" 1>&2
 	exit $critical
@@ -151,11 +146,8 @@ do
 
 	if [ "${lmod}" = true ]
 	then
-		module_list=$(module avail -t 2>&1 | grep -v ':$')
-		command="for mod in ${module_list} ; do module whatis \${mod} 2>&1 ; done"
-	elif [ "${localhost}" = "beatrice" ]
-	then
-		command="ssh \${machine} 'bash -l -c \"module whatis -t\" 2>&1'"
+		module_list=$(module avail -t Bison 2>&1 | grep -v ':$')
+		command="for mod in ${module_list} ; do desc=\$(module whatis \${mod} 2>&1); echo "\${desc}"; done"
 	else
 		command="module whatis -t 2>&1"
 	fi
@@ -165,6 +157,7 @@ do
 		grep -v ":ERROR:" | \
 		grep -Ev "[Nn]ot (supported|available)" | \
 		grep -v "only available" | \
+		sed -e 's/\s\+/ /' | \
 		sed -e '/^\s*$/d' \
 		> "${output_file}"
 	${curl_exe} -s -S --sslv3 --cacert ${certdir}/docs.pem --cert ${certdir}/${localhost}.pem --key ${certdir}/${localhost}.key https://docs.nesi.org.nz:443/${machine} -F myfile=@${output_file}
@@ -186,11 +179,5 @@ do
 		echo "Module lists for documentation purposes have been successfully updated."
 	fi
 done
-
-# Turn off ielogin if needed.
-if [ "${localhost}" = "beatrice" ]
-then
-	ielogin off
-fi
 
 exit $ok
