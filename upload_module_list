@@ -146,7 +146,7 @@ do
 
 	if [ "${lmod}" = true ]
 	then
-		module_list=$(module avail -t Bison 2>&1 | grep -v ':$')
+		module_list=$(module avail -t 2>&1 | grep -v ':$')
 		command="for mod in ${module_list} ; do desc=\$(module whatis \${mod} 2>&1); echo "\${desc}"; done"
 	else
 		command="module whatis -t 2>&1"
