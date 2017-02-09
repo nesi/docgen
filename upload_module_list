@@ -12,6 +12,26 @@ warning=1
 critical=2
 unknown=3
 
+# Set some parameters based on where this script is being run
+long_hostname=$(hostname)
+case ${long_hostname} in
+login-01.uoa.nesi.org.nz)
+	localhost="pan"
+	machines="pan"
+	;;
+nesi1)
+	localhost="fitzroy"
+	machines="fitzroy"
+	export http_proxy="http://www-proxy.niwa.co.nz:80"
+	export https_proxy="https://www-proxy.niwa.co.nz:80"
+	export PATH="/opt/freeware/bin:${PATH}"
+	;;
+*)
+	echo "Unknown hostname: ${long_hostname}" 1>&2
+	exit $critical
+	;;
+esac
+
 # Get some configuration information from the local machine, etc.
 progname=$(basename $0)
 certdir=$( cd "$( dirname "$( readlink -f "${BASH_SOURCE[0]}" )" )" && pwd )
@@ -57,26 +77,6 @@ do
 		;;
 	esac
 done
-
-# Set some parameters based on where this script is being run
-uchpc=false
-long_hostname=$(hostname)
-case ${long_hostname} in
-login-01.uoa.nesi.org.nz)
-	localhost="pan"
-	machines="pan"
-	;;
-nesi1)
-	localhost="fitzroy"
-	machines="fitzroy"
-	export http_proxy="http://www-proxy.niwa.co.nz:80"
-	export https_proxy="https://www-proxy.niwa.co.nz:80"
-	;;
-*)
-	echo "Unknown hostname: ${long_hostname}" 1>&2
-	exit $critical
-	;;
-esac
 
 # Make sure the specified certificate directory exists and that we have an
 # appropriate key file inside that directory
